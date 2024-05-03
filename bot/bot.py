@@ -1,8 +1,11 @@
 from telebot import types
 import telebot
 import sqlite3 as sq
+import os
+from dotenv import load_dotenv
 
-bot = telebot.TeleBot('')
+load_dotenv()
+bot = telebot.TeleBot(os.getenv('TOKEN'))
 
 def webAppKeyboard(): 
    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
