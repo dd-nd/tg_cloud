@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link rel= "stylesheet" type= "text/css" href="{{ url_for('static', filename='style.css') }}">
+
+   <title>Test Telegram WebApps API</title>
+
+   <script src="https://telegram.org/js/telegram-web-app.js"></script> <!--Telegram WebApp API-->
+</head>
+
+<body>
+   <div id="usercard">
+   </div>
+   <p>Just text</p> 
+   <a class="link" href="https://mihailgok.ru">Link</a>
+   <p class="hint">Some little hint</p>
+   <button id="btn" class="button">Show/Hide Main Button</button>
+   <button id="btnED" class="button">Enable/Disable Main Button</button>
+
+   <!-- новый вариант -->
+   <header class="main-title">Добавление</header>
+   <section class="section-container">
+      <form action="" class="form-content">
+         <div class="form-group">
+            <label for="Name" class="label-title">Название</label>
+            <input type="text" id="Name" />
+         </div>
+         <div class="form-group">
+            <label for="dropdown-type" class="label-title">Тип</label>
+            <select id="dropdown-type"></select>
+         </div>
+         <div class="form-group">
+            <label for="dropdown-genre" class="label-title">Жанр</label>
+            <select id="dropdown-genre"></select>
+         </div>
+         <div class="form-group">
+            <label for="dropdown-status" class="label-title">Статус</label>
+            <select id="dropdown-status"></select>
+         </div>
+         <button class="form-send-btn btn" onclick="sendData()">Отправить</button>
+      </form>
+   </section>
+</body>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+
+<script>
+   /*let tg = window.Telegram.WebApp; //получаем объект webapp телеграма 
+
+   tg.expand(); //расширяем на все окно  
+
+   tg.MainButton.text = "Changed Text"; //изменяем текст кнопки 
+   tg.MainButton.setText("Changed Text1"); //изменяем текст кнопки иначе
+   tg.MainButton.textColor = "#F55353"; //изменяем цвет текста кнопки
+   tg.MainButton.color = "#143F6B"; //изменяем цвет бэкграунда кнопки
+   tg.MainButton.setParams({"color": "#143F6B"}); //так изменяются все параметры
+
+   let btn = document.getElementById("btn"); //получаем кнопку скрыть/показать 
+
+   btn.addEventListener('click', function(){ //вешаем событие на нажатие html-кнопки
+      if (tg.MainButton.isVisible){ //если кнопка показана 
+         tg.MainButton.hide() //скрываем кнопку 
+      }
+      else{ //иначе
+         tg.MainButton.show() //показываем 
+      }
+   });
+
+   let btnED = document.getElementById("btnED"); //получаем кнопку активировать/деактивировать
+   btnED.addEventListener('click', function(){ //вешаем событие на нажатие html-кнопки
+      if (tg.MainButton.isActive){ //если кнопка показана 
+         tg.MainButton.setParams({"color": "#E0FFFF"}); //меняем цвет
+         tg.MainButton.disable() //скрываем кнопку 
+      }
+      else{ //иначе
+         tg.MainButton.setParams({"color": "#143F6B"}); //меняем цвет
+         tg.MainButton.enable() //показываем 
+      }
+   });
+
+   Telegram.WebApp.onEvent('mainButtonClicked', function(){
+      tg.sendData("some string that we need to send"); 
+      //при клике на основную кнопку отправляем данные в строковом виде
+   });
+
+
+   let usercard = document.getElementById("usercard"); //получаем блок usercard 
+
+   let profName = document.createElement('p'); //создаем параграф
+   profName.innerText = `${tg.initDataUnsafe.user.first_name}
+   ${tg.initDataUnsafe.user.last_name}
+   ${tg.initDataUnsafe.user.username} (${tg.initDataUnsafe.user.language_code})`;
+   //выдем имя, "фамилию", через тире username и код языка
+   usercard.appendChild(profName); //добавляем 
+
+   let userid = document.createElement('p'); //создаем еще параграф 
+   userid.innerText = `${tg.initDataUnsafe.user.id}`; //показываем user_id
+   usercard.appendChild(userid); //добавляем
+
+
+   //работает только в attachment menu
+   // let pic = document.createElement('img'); //создаем img
+   // pic.src = tg.initDataUnsafe.user.photo_url; //задаём src 
+   // usercard.appendChild(pic); //добавляем элемент в карточку */
+</script>
+</html>
