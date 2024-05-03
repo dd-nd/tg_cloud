@@ -2,7 +2,7 @@ from telebot import types
 import telebot
 import sqlite3 as sq
 
-bot = telebot.TeleBot('6311871616:AAH1OYnplmeNTGwpraw1okWcPcn77sgwG4U')
+bot = telebot.TeleBot('TOKEN')
 
 def webAppKeyboard(): #создание клавиатуры с webapp кнопкой
    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True) #создаем клавиатуру
