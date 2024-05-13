@@ -20,7 +20,7 @@ def allowed_file(filename):
 @bot.message_handler(commands=['start'])
 def start(message: Message):
     bot.send_message( message.chat.id, 'Для загрузки просто отправьте файл 🤗\n📜 Общий список команд:\n\t\t' +
-                     '/all - вывести все доступные файлы\n\t\t' +
+                     '/all - выбрать файл, посмотреть все файлы\n\t\t' +
                      '/edit - изменить выбранный файл\n\t\t' +
                      '/download - скачать выбранный файл\n\t\t' +
                      '/delete - удалить выбранный файл')
@@ -82,15 +82,29 @@ files_to_update = {}  # Словарь для хранения названий 
 @bot.callback_query_handler(func=lambda call: any(action in call.data for action in actions))
 def execute_file_action(call: CallbackQuery):
     action, selected_file = call.data.split('_')[0], call.data.split('_')[1]
+    files_to_update[selected_file] = call.from_user.id
 
+    # Логика для скачивания файла
     if action == 'Download':
-        # Логика для скачивания файла
-        bot.send_message(call.message.chat.id, f'Вы выбрали действие "Скачать" для файла "{selected_file}" 📥')
-    
+        if call.from_user.id == files_to_update.get(selected_file):
+            try:
+                with sq.connect('db/database.db') as con:
+                    cur = con.cursor()
+                    cur.execute(f"SELECT data, format FROM files WHERE user_id = {call.from_user.id} AND name = '{selected_file}'")
+                    file_data, data_format = cur.fetchone()
+
+                    bot.send_document(call.message.chat.id, file_data, visible_file_name=f'{selected_file}.{data_format}')
+                        
+                    del files_to_update[selected_file]
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
+        else:
+            bot.send_message(call.message.chat.id, 'У вас нет разрешения на доступ к этому файлу! ❌')
+
+    # Логика для изменения названия файла
     elif action == 'Edit name':
         bot.send_message(call.message.chat.id, 'Введите новое название 🤗')
-        files_to_update[selected_file] = call.from_user.id
-    
+
         @bot.message_handler(func=lambda message: True)
         def handle_file_name(message: Message):
             new_file_name = message.text
@@ -106,12 +120,22 @@ def execute_file_action(call: CallbackQuery):
                     bot.send_message(message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
             else:
                 bot.send_message(call.message.chat.id, 'У вас нет разрешения на изменение этого файла! ❌')
-    
         bot.register_next_step_handler(call.message, handle_file_name)
     
+    # Логика для удаления файла
     elif action == 'Delete':
-        # Логика для удаления файла
-        bot.send_message(call.message.chat.id, f'Вы выбрали действие "Удалить" для файла "{selected_file}" ❌')
+        if call.from_user.id == files_to_update.get(selected_file):
+            try:
+                with sq.connect('db/database.db') as con:
+                    cur = con.cursor()
+                    cur.execute(f'DELETE FROM files WHERE user_id = "{call.from_user.id}" AND name = "{selected_file}"')
+                    con.commit()
+                    bot.send_message(call.message.chat.id, 'Файл успешно удален! 🥹')
+                    del files_to_update[selected_file]
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
+        else:
+            bot.send_message(call.message.chat.id, 'У вас нет разрешения на изменение этого файла! ❌')
 
 if __name__ == '__main__':
     bot.infinity_polling()
