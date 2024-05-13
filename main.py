@@ -17,7 +17,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx'}
 
 # Обработчик команды /start
-@bot.message_handler(commands=['start'])
+@bot.message_handler(commands=['start', 'help'])
 def start(message: Message):
     bot.send_message( message.chat.id, 'Для загрузки просто отправьте файл 🤗\n📜 Общий список команд:\n\t\t' +
                      '/all - выбрать файл, посмотреть все файлы\n\t\t' +
@@ -27,23 +27,44 @@ def start(message: Message):
 
 
 # Обработчик приема документа от пользователя
-@bot.message_handler(content_types=['document'])
+@bot.message_handler(content_types=['document', 'photo'])
 def upload_file(message: Message):
     user_id = message.from_user.id
     user_nickname = message.from_user.username
-    try:
-        if allowed_file(message.document.file_name):
-            file_name = secure_filename(message.document.file_name).split('.')[0]
-            file_type = secure_filename(message.document.file_name).split('.')[1]
-            downloaded_file = bot.download_file(bot.get_file(message.document.file_id).file_path)
+    
+    # Handling the document
+    if message.document:
+        try:
+            if allowed_file(message.document.file_name):
+                file_name = secure_filename(message.document.file_name).split('.')[0]
+                file_type = secure_filename(message.document.file_name).split('.')[1]
+                downloaded_file = bot.download_file(bot.get_file(message.document.file_id).file_path)
+    
+                with sq.connect('db/database.db') as con: 
+                    cur = con.cursor()
+                    cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
+                                (file_name, file_type, downloaded_file, user_id, user_nickname))
+                    bot.send_message(message.chat.id, 'Ням 🤗')
+        except sq.IntegrityError:
+            bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
+    
+    # Handling the photo
+    elif message.photo:
+        try:
+            photo = message.photo[-1]
+            photo_id = photo.file_id
+            photo = bot.download_file(bot.get_file(photo_id).file_path)
 
+            file_path = bot.get_file(photo_id).file_path
+            file_name, file_type = os.path.splitext(file_path)
+            
             with sq.connect('db/database.db') as con: 
                 cur = con.cursor()
-                cur.execute(f'INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)', (file_name, file_type, downloaded_file, 
-                                                                                                                   user_id, user_nickname))
-                bot.send_message( message.chat.id, 'Ням 🤗')
-    except sq.IntegrityError:
-        bot.send_message( message.chat.id, 'Попробуй еще раз 🥱')
+                cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
+                            (file_name.split('/')[-1], file_type, photo, user_id, user_nickname))
+                bot.send_message(message.chat.id, '📸 Спасибо за фото!')
+        except sq.IntegrityError:
+            bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
 
 
 # Обработчик вывода всех файлов пользователя 
@@ -68,7 +89,8 @@ def get_file_name(message: Message):
 # Обработчик обновления названия файла
 @bot.callback_query_handler(func=lambda call: call.data.startswith('action_'))
 def handle_file_actions(call: CallbackQuery):
-    selected_file = call.data.split('_')[1]
+    selected_file = call.data.split('_')[1:]
+    selected_file = '_'.join(selected_file)
     markup = InlineKeyboardMarkup()
     
     for action in actions:
@@ -81,7 +103,9 @@ files_to_update = {}  # Словарь для хранения названий 
 
 @bot.callback_query_handler(func=lambda call: any(action in call.data for action in actions))
 def execute_file_action(call: CallbackQuery):
-    action, selected_file = call.data.split('_')[0], call.data.split('_')[1]
+    action, selected_file = call.data.split('_')[0], call.data.split('_')[1:]
+    selected_file = '_'.join(selected_file)
+    
     files_to_update[selected_file] = call.from_user.id
 
     # Логика для скачивания файла
