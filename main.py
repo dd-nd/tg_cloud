@@ -14,7 +14,11 @@ actions = ["Download", "Edit name", "Delete"]
 
 # Функция для проверки разрешенных типов файлов
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'mp4'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 
+                                                                      'doc', 'docx', 'mp4', 'json', 'zip', 'py', 
+                                                                      'sql', 'ipynb', 'csv', 'xlsx', 'rar', 'odt', 
+                                                                      'ods', 'pptx', 'bat', 'sh', 'html', 'css', 
+                                                                      'js', 'xml', 'mp3', 'wav', 'webp', 'avi', 'mkv'}
 
 # Обработчик команды /start
 @bot.message_handler(commands=['start', 'help'])
@@ -27,7 +31,7 @@ def start(message: Message):
 
 
 # Обработчик приема документа от пользователя
-@bot.message_handler(content_types=['document', 'photo'])
+@bot.message_handler(content_types=['document', 'photo', 'video', 'voice'])
 def upload_file(message: Message):
     user_id = message.from_user.id
     user_nickname = message.from_user.username
@@ -50,7 +54,7 @@ def upload_file(message: Message):
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
     
-    # Handling the photo or video
+    # Handling the photo
     elif message.photo:
         try:
             photo = message.photo[-1]
@@ -68,6 +72,7 @@ def upload_file(message: Message):
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
 
+    # Handling the video
     elif message.video:
         try:
             video = message.video
@@ -82,6 +87,24 @@ def upload_file(message: Message):
                 cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
                             (file_name.split('/')[-1], file_type, video_data, user_id, user_nickname))
                 bot.send_message(message.chat.id, '🎥 Видео успешно загружено!')
+        except sq.IntegrityError:
+            bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
+    
+    # Handling the voice
+    elif message.voice:
+        try:
+            voice = message.voice
+            voice_id = voice.file_id
+            voice_data = bot.download_file(bot.get_file(voice_id).file_path)
+
+            file_path = bot.get_file(voice_id).file_path
+            file_name, file_type = os.path.splitext(file_path)
+
+            with sq.connect('db/database.db') as con: 
+                cur = con.cursor()
+                cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
+                            (file_name.split('/')[-1], file_type, voice_data, user_id, user_nickname))
+                bot.send_message(message.chat.id, '🎵 Аудио успешно загружено!')
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
 
