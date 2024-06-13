@@ -1,24 +1,21 @@
 from telebot.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from crypto import encrypt_data, decrypt_data
 from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
+import os
 import sqlite3 as sq
 import telebot
-import os
 
-load_dotenv()
-token = os.getenv("TOKEN")
-bot = telebot.TeleBot(token)
+bot = telebot.TeleBot(os.getenv("TOKEN"))
 
 files_to_update = {}
 actions = ["Download", "Edit name", "Delete"]
 
 # Функция для проверки разрешенных типов файлов
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 
-                                                                      'doc', 'docx', 'mp4', 'json', 'zip', 'py', 
-                                                                      'sql', 'ipynb', 'csv', 'xlsx', 'rar', 'odt', 
-                                                                      'ods', 'pptx', 'bat', 'sh', 'html', 'css', 
-                                                                      'js', 'xml', 'mp3', 'wav', 'webp', 'avi', 'mkv'}
+    allowed_extensions = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'doc', 'docx', 'mp4', 'json', 'zip', 'py', 
+                          'sql', 'ipynb', 'csv', 'xlsx', 'rar', 'odt', 'ods', 'pptx', 'bat', 'sh', 'html', 'css', 
+                          'js', 'xml', 'mp3', 'wav', 'webp', 'avi', 'mkv'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 # Обработчик команды /start
 @bot.message_handler(commands=['start', 'help'])
@@ -29,32 +26,34 @@ def start(message: Message):
                      '/download - скачать выбранный файл\n\t\t' +
                      '/delete - удалить выбранный файл')
 
-
 # Обработчик приема документа от пользователя
 @bot.message_handler(content_types=['document', 'photo', 'video', 'voice'])
 def upload_file(message: Message):
     user_id = message.from_user.id
     user_nickname = message.from_user.username
     
-    # Handling the document
+    # Документ
     if message.document:
         try:
             if allowed_file(message.document.file_name):
                 file_name = secure_filename(message.document.file_name).split('.')[0]
                 file_type = secure_filename(message.document.file_name).split('.')[1]
                 downloaded_file = bot.download_file(bot.get_file(message.document.file_id).file_path)
-    
+                
+                encrypted_downloaded_file = encrypt_data(downloaded_file)
+                
                 with sq.connect('db/database.db') as con: 
                     cur = con.cursor()
                     cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
-                                (file_name, file_type, downloaded_file, user_id, user_nickname))
-                    bot.send_message(message.chat.id, 'Ням 🤗')
+                                (file_name, file_type, encrypted_downloaded_file, user_id, user_nickname))
+                    con.commit()
+                bot.send_message(message.chat.id, 'Ням 🤗')
             else:
                 bot.send_message(message.chat.id, 'Этот файл не поддерживается 🥱')
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
     
-    # Handling the photo
+    # Фото
     elif message.photo:
         try:
             photo = message.photo[-1]
@@ -64,15 +63,19 @@ def upload_file(message: Message):
             file_path = bot.get_file(photo_id).file_path
             file_name, file_type = os.path.splitext(file_path)
             
+            encrypted_photo = encrypt_data(photo)
+
             with sq.connect('db/database.db') as con: 
                 cur = con.cursor()
                 cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
-                            (file_name.split('/')[-1], file_type, photo, user_id, user_nickname))
-                bot.send_message(message.chat.id, 'Ням 🤗')
+                            (file_name, file_type, encrypted_photo, user_id, user_nickname))
+                con.commit()
+            bot.send_message(message.chat.id, 'Ням 🤗')
+
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
 
-    # Handling the video
+    # Видео
     elif message.video:
         try:
             video = message.video
@@ -82,15 +85,19 @@ def upload_file(message: Message):
             file_path = bot.get_file(video_id).file_path
             file_name, file_type = os.path.splitext(file_path)
 
+            encrypted_video_data = encrypt_data(video_data)
+
             with sq.connect('db/database.db') as con: 
                 cur = con.cursor()
                 cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
-                            (file_name.split('/')[-1], file_type, video_data, user_id, user_nickname))
-                bot.send_message(message.chat.id, '🎥 Видео успешно загружено!')
+                            (file_name, file_type, encrypted_video_data, user_id, user_nickname))
+                con.commit()
+            bot.send_message(message.chat.id, '🎥 Видео успешно загружено!')
+
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
     
-    # Handling the voice
+    # ГС
     elif message.voice:
         try:
             voice = message.voice
@@ -100,14 +107,17 @@ def upload_file(message: Message):
             file_path = bot.get_file(voice_id).file_path
             file_name, file_type = os.path.splitext(file_path)
 
+            encrypted_voice_data = encrypt_data(voice_data)
+
             with sq.connect('db/database.db') as con: 
                 cur = con.cursor()
                 cur.execute('INSERT INTO files (name, format, data, user_id, user_name) VALUES (?, ?, ?, ?, ?)',
-                            (file_name.split('/')[-1], file_type, voice_data, user_id, user_nickname))
-                bot.send_message(message.chat.id, '🎵 Аудио успешно загружено!')
+                            (file_name, file_type, encrypted_voice_data, user_id, user_nickname))
+                con.commit()
+            bot.send_message(message.chat.id, '🎵 Аудио успешно загружено!')
+
         except sq.IntegrityError:
             bot.send_message(message.chat.id, 'Попробуй еще раз 🥱')
-
 
 # Обработчик вывода всех файлов пользователя 
 @bot.message_handler(commands=['all'])
@@ -122,11 +132,10 @@ def get_file_name(message: Message):
         for i in results:
             btn = InlineKeyboardButton(i, callback_data=f'action_{i}')
             markup.add(btn)
-
         bot.send_message(message.chat.id, 'Выбери файл для дальнейших действий 🤗', reply_markup=markup)
+
     except Exception as e:
         bot.send_message(message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
-
 
 # Обработчик обновления названия файла
 @bot.callback_query_handler(func=lambda call: call.data.startswith('action_'))
@@ -159,9 +168,10 @@ def execute_file_action(call: CallbackQuery):
                     cur.execute(f"SELECT data, format FROM files WHERE user_id = {call.from_user.id} AND name = '{selected_file}'")
                     file_data, data_format = cur.fetchone()
 
-                    bot.send_document(call.message.chat.id, file_data, visible_file_name=f'{selected_file}.{data_format}')
+                    bot.send_document(call.message.chat.id, decrypt_data(file_data), visible_file_name=f'{selected_file}.{data_format}')
                         
                     del files_to_update[selected_file]
+
             except Exception as e:
                 bot.send_message(call.message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
         else:
@@ -180,8 +190,11 @@ def execute_file_action(call: CallbackQuery):
                         cur = con.cursor()
                         cur.execute(f'UPDATE files SET name = "{new_file_name}" WHERE user_id = "{call.from_user.id}" AND name = "{selected_file}"')
                         con.commit()
-                        bot.send_message(message.chat.id, 'Название файла успешно обновлено! ✨')
-                        del files_to_update[selected_file]
+
+                    bot.send_message(message.chat.id, 'Название файла успешно обновлено! ✨')
+
+                    del files_to_update[selected_file]
+
                 except Exception as e:
                     bot.send_message(message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
             else:
@@ -196,8 +209,11 @@ def execute_file_action(call: CallbackQuery):
                     cur = con.cursor()
                     cur.execute(f'DELETE FROM files WHERE user_id = "{call.from_user.id}" AND name = "{selected_file}"')
                     con.commit()
-                    bot.send_message(call.message.chat.id, 'Файл успешно удален! 🥹')
-                    del files_to_update[selected_file]
+
+                bot.send_message(call.message.chat.id, 'Файл успешно удален! 🥹')
+
+                del files_to_update[selected_file]
+
             except Exception as e:
                 bot.send_message(call.message.chat.id, f'Что-то пошло не так 🤗\n{str(e)}')
         else:

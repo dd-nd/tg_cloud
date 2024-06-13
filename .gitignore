@@ -1,2 +1,4 @@
 database.db
 .env
+secret.key
+__pycache__
